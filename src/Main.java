@@ -1,17 +1,50 @@
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class Main {
 	public static void main(String[] args) {
-		int totalpagantes = 0;
+        double[] nums = {0, 0, 10, -10, -20, -80, 100, 200, 800, -1000, -1300, -1500, -2200, 5000, 6300, 7200, 16500, -30000};
+        ArrayList<P> valores = new ArrayList<P>(nums.length);
+        for (int i = 0; i < nums.length; i++) {
+            P p = new P("pessoa"+i,nums[i],true);
+            p.diff=nums[i];
+            valores.add(i,p);
+        }
+        ArrayList<P> valores1 = (ArrayList<P>) valores.stream().filter(t->t.valor!=0).collect(Collectors.toList());
+        valores1.sort((o1, o2) -> o1.isMaior(o2)?1:0) ;
+        Collections.reverse(valores1);
+
+        Stream.of(valores1).forEach(s -> System.out.println(s.toString()));
+
+        Double sumT = valores.stream().mapToDouble(x -> x.getDiff()).sum();
+        System.out.println(sumT);
+
+        ArrayList<RP> lsReceberPagantes = new ArrayList<RP>();
+        T.lsResolvidoHardcode(valores1,lsReceberPagantes);
+
+        T.resolve(valores1,lsReceberPagantes);
+
+    }
+
+    public void start(){
+        int totalpagantes = 0;
 		T t = new T();
 		ArrayList<P> lsGeral = t.getLista();
 		ArrayList<P> lsPagantes = new ArrayList();
+		ArrayList<P> lsPaga = new ArrayList();
+		ArrayList<P> lsRecebe = new ArrayList();
 		ArrayList<RP> lsReceberPagantes = new ArrayList();
 		double total = t.calculaTotalMaisListaPagantes(lsGeral, lsPagantes);
 		double vpp = t.calculaDividaIndividual(total, lsGeral, lsPagantes);
-		ArrayList<P> lsAux = t.calcularReceberPagantesIgual(lsGeral, lsReceberPagantes);
+
+		//lsPaga= (ArrayList<P>) lsGeral.stream().filter(pp -> pp.diff < 1).collect(Collectors.toList());
+		//lsRecebe= (ArrayList<P>) lsGeral.stream().filter(pp -> pp.diff > 1).collect(Collectors.toList());
+		//t.calcula(total,vpp,lsPaga,lsRecebe,lsReceberPagantes);
+
+        ArrayList<P> lsAux = t.calcularReceberPagantesIgual(lsGeral, lsReceberPagantes);
 		lsAux = t.calcularReceberPagantesSomaIgual(lsAux, lsReceberPagantes);
 
 		t.print(total, vpp, lsGeral, lsPagantes, lsReceberPagantes);
@@ -40,27 +73,80 @@ class T {
 	public T() {
 	}
 
-	private double valorPendenteReceber(ArrayList<RP> lsReceberPagantes, P r) {
+    public static void resolve(ArrayList<P> valores,ArrayList<RP> lsReceberPagantes) {
+        double valor_pendente = 0;
+        for (P p : valores) {
+            valor_pendente += (p.getDiff() > 0) ? valorPendenteReceber(lsReceberPagantes, p)
+                    : valorPendentePagar(lsReceberPagantes, p)*-1;
+        }
+        System.out.println(valor_pendente);
+    }
+
+	/*public void calcula(double total, double vpp, ArrayList<P> lsPaga, ArrayList<P> lsRecebe, ArrayList<RP> lsReceberPagantes) {
+		Double sumPaga   = lsPaga.stream().mapToDouble(x -> x.getDiff()).sum();
+		Double sumRecebe = lsRecebe.stream().mapToDouble(x -> x.getDiff()).sum();
+		if(sumRecebe != 0 || sumPaga != 0) {
+			Collections.sort(lsPaga, Comparator.comparingDouble(P::getDiff));
+			Collections.sort(lsRecebe, Comparator.comparingDouble(P::getDiff));
+			Collections.reverse(lsRecebe);
+			P recebeP = getFirst(lsRecebe);
+			P pagoP = getFirst(lsPaga);
+			if(recebeP.getDiff()+pagoP.getDiff()>0){
+				RP rp = new RP(pagoP.getDiff()*-1,recebeP,pagoP);
+			}
+		}
+
+		System.out.println("n");
+	}
+
+	private P getFirst(ArrayList<P> ls) {
+		int index = 0;
+		P p = ls.get(index);
+		return p;
+	}*/
+
+	public static double valorPendenteReceber(ArrayList<RP> lsReceberPagantes, P r) {
 		double total = 0.0;
 		for (RP rp : lsReceberPagantes) {
 			if (rp.receber.equals(r)) {
-				total += rp.valorPago;
+                if(rp.receber.getDiffPlus()>rp.pagar.getDiffPlus()) {
+                    total += rp.pagar.getDiffPlus();
+                }else{
+                    total += rp.receber.getDiff();
+                }
 			}
 		}
-		return r.diff - total;
+		return r.getDiff() - total;
 	}
 
-	private double valorPendentePagar(ArrayList<RP> lsReceberPagantes, P p) {
+	private static double valorPendentePagar(ArrayList<RP> lsReceberPagantes, P p) {
 		double total = 0.0;
 		for (RP rp : lsReceberPagantes) {
 			if (rp.pagar.equals(p)) {
-				total += rp.valorPago;
+				total += rp.receber.getDiff();
 			}
 		}
 		return p.diff + total;
 	}
 
-	public ArrayList<P> calcularReceberPagantesSomaIgual(ArrayList<P> lsGeral, ArrayList<RP> lsReceberPagantes) {
+    public static void lsResolvidoHardcode(ArrayList<P> valores1, ArrayList<RP> lsReceberPagantes) {
+        lsReceberPagantes.add(new RP(0,valores1.get(1),valores1.get(0)));
+        lsReceberPagantes.add(new RP(0,valores1.get(2),valores1.get(0)));
+        lsReceberPagantes.add(new RP(0,valores1.get(3),valores1.get(0)));
+        lsReceberPagantes.add(new RP(0,valores1.get(4),valores1.get(5)));
+        lsReceberPagantes.add(new RP(0,valores1.get(4),valores1.get(6)));
+        lsReceberPagantes.add(new RP(0,valores1.get(4),valores1.get(7)));
+        lsReceberPagantes.add(new RP(0,valores1.get(9),valores1.get(8)));
+        lsReceberPagantes.add(new RP(0,valores1.get(10),valores1.get(8)));
+        lsReceberPagantes.add(new RP(0,valores1.get(11),valores1.get(12)));
+        lsReceberPagantes.add(new RP(0,valores1.get(11),valores1.get(13)));
+        lsReceberPagantes.add(new RP(0,valores1.get(15),valores1.get(14)));
+
+
+
+    }
+
+    public ArrayList<P> calcularReceberPagantesSomaIgual(ArrayList<P> lsGeral, ArrayList<RP> lsReceberPagantes) {
 		ArrayList<P> lsAux = (ArrayList<P>) lsGeral.clone();
 		for (P r : lsGeral) {
 			if (r.diff > 0) {
@@ -134,18 +220,21 @@ class T {
 		int totalpagantes = lsPagantes.size();
 		System.out.println("total pag: " + totalpagantes + "  total: "
 				+ Utils.leftPad(String.valueOf(total), numsize, " ") + "  pp: " + vpp);
-		System.out.println(" N nome " + Utils.leftPad("Pago", numsize, " ") + " "+Utils.leftPad("Diff", numsize, " ")+ ""+Utils.leftPad("Pend", numsize, " "));
+		System.out.println(" N nome " + Utils.leftPad("Pago", numsize, " ") + " "+Utils.leftPad("Diff", numsize, " ")+ ""+Utils.leftPad("Pend", numsize, " ")+""+Utils.leftPad("Tipo", numsize, " "));
 		for (P p : lsGeral) {
 			double valor_pendente = (p.diff > 0) ? valorPendenteReceber(lsReceberPagantes, p)
 					: valorPendentePagar(lsReceberPagantes, p);
-			String colorBg = (p.diff > 0) ? COLOR_GREEN_BACKGROUND : COLOR_RED_BACKGROUND;
-			colorBg = (p.pagante) ? colorBg : COLOR_BLUE_BACKGROUND;
-			String colorFnt = (valor_pendente!=0)?COLOR_BLACK:COLOR_WHITE;
-					
+
+			String tipo = (p.diff > 0) ? " não paga " : " paga ";
+			tipo = (p.pagante) ? tipo : " recebe ";
+			tipo=Utils.leftPad(tipo, 10, " ");
+			String colorBg =(valor_pendente!=0)?COLOR_GREEN_BACKGROUND:COLOR_RED_BACKGROUND;
+			String colorFnt = COLOR_BLACK; //(valor_pendente!=0)?COLOR_BLACK:COLOR_BLACK;
+
 			System.out.println(colorFnt+colorBg + Utils.leftPad(String.valueOf(lsGeral.indexOf(p)), 2, " ") + " " + p.nome + " "
 					+ Utils.leftPad(String.valueOf(p.valor), numsize, " ") + " "
 					+ Utils.leftPad(String.valueOf(p.diff), numsize, " ")
-					+ Utils.leftPad(String.valueOf(valor_pendente), numsize, " ") + COLOR_BLACK_BACKGROUND
+					+ Utils.leftPad(String.valueOf(valor_pendente), numsize, " ") +tipo+ COLOR_BLACK_BACKGROUND
 					+ COLOR_WHITE);
 		}
 		System.out.println(" N rcbd " + Utils.leftPad("valR", numsize, " ") +" "+"pgnt "+ Utils.leftPad("dvda", numsize, " ") + "   valorPago") ;
@@ -242,6 +331,24 @@ class P {
 	public double getDiff() {
 		return this.diff;
 	}
+    public double getDiffPlus() {
+        return Math.sqrt(Math.pow(this.diff, 2));
+    }
+
+    public boolean isMaior(P o2) {
+        return Math.sqrt(Math.pow(this.diff, 2)) >Math.sqrt(Math.pow(o2.getDiffPlus(), 2));
+    }
+    @Override
+    public String toString() {
+        return "P{" +
+                "nome='" + nome + '\'' +
+                ", valor=" + valor +
+                ", diff=" + diff +
+                ", pagante='" + pagante + '\'' +
+                '}'+"\n";
+    }
+
+
 }
 
 class RP {

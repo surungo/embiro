@@ -38,58 +38,95 @@ class Processo {
 		//lsReceberPagar.add(new RP(null,lsGeral.get(3)));
 		ArrayList<P> lsGeralAtual = (ArrayList<P>) lsGeral.stream().filter(t->t.getSaldoInicial()!=0).collect(Collectors.toList());
 		tool.print( total, vpp, lsGeral, lsNaoIsentos, lsReceberPagar);
-		tool.resolver(lsGeralAtual,lsReceberPagar,1);
+		tool.resolver(lsGeralAtual,lsReceberPagar,new ArrayList<P>(),1);
 		tool.print( total, vpp, lsGeralAtual, lsNaoIsentos, lsReceberPagar);
 	}
 }
 class Tool {
 	public Tool() {
 	}
-    public void resolver(ArrayList<P> p_lsGeralAtual, ArrayList<RP> lsReceberPagantes,int qta) {
+    public void resolver(ArrayList<P> p_lsGeralAtual, ArrayList<RP> lsReceberPagantes,ArrayList<P> lsJaForamDestaVez ,int qta) {
         if(p_lsGeralAtual.isEmpty())return;
+        P p = new P("  ",0,false);
+        P parceiro = null;
 		Collections.sort(p_lsGeralAtual, Comparator.comparingDouble(P::getSaldoAtualPositivo));
 		Collections.reverse(p_lsGeralAtual);
 		if(hasParSozinho(lsReceberPagantes)){
 			RP rp = pegarSozinho(lsReceberPagantes);
-			P p = pegarSozinho(rp);
+            p = pegarSozinho(rp);
 			if(p!=null) {
 				for(int i=0;i <qta;i++){
-					P parceiro=extrairParceiro(p_lsGeralAtual,p);
+                    if(i==qta-1) {
+                        parceiro = extrairParceiro(p_lsGeralAtual, p);
+                    }else{
+                        parceiro = extrairPrimeiro(p_lsGeralAtual);
+                    }
 					if(parceiro!=null) {
+                        double valorAux= parceiro.getSaldoAtual();
+                        if(i>0) {
+                            rp = adicionaLsReceberPagantes(lsReceberPagantes, p);
+                        }
 						if (p.isReceber()) {
 							rp.pagar = parceiro;
-							rp.receber.setSaldoAtual(rp.receber.getSaldoAtual()+rp.pagar.getSaldoAtual());
 						} else {
 							rp.receber = parceiro;
-							rp.pagar.setSaldoAtual(rp.pagar.getSaldoAtual()+rp.receber.getSaldoAtual());
+                            valorAux=valorAux*-1;
 						}
+                        rp.pagar.setSaldoAtual(rp.pagar.getSaldoAtual()-valorAux);
+                        rp.receber.setSaldoAtual(rp.receber.getSaldoAtual()+valorAux);
 
 					}else{
-						lsReceberPagantes.remove(rp);
-						p_lsGeralAtual.add(p);
+						resetarAndamentoParcial(p_lsGeralAtual,lsReceberPagantes, lsJaForamDestaVez, rp, p);
 					}
 				}
 			}else{
 				System.out.println("erro no tem sozinho");
 			}
-		}else {
-			P p = extrairPrimeiro(p_lsGeralAtual);
-			if(p.isReceber()){
-				lsReceberPagantes.add(new RP(p,null));
-			}else{
-				lsReceberPagantes.add(new RP(null,p));
-			}
-			resolver(p_lsGeralAtual,lsReceberPagantes,qta);
 		}
-        /*for (P p : lsGeralAtual) {
-            valor_pendente += (p.getSaldoInicial() > 0) ? valorPendenteReceber(lsReceberPagantes, p)
-                    : valorPendentePagar(lsReceberPagantes, p)*-1;
+        if(p_lsGeralAtual.isEmpty())return;
+        if(p_lsGeralAtual.size()<qta+1){
+            p_lsGeralAtual.addAll(lsJaForamDestaVez);
+            qta++;
+            resolver(p_lsGeralAtual,lsReceberPagantes,new ArrayList<P>(),qta);
         }
-        System.out.println(valor_pendente);*/
+        if(p_lsGeralAtual.isEmpty())return;
+        P pnew = extrairPrimeiro(p_lsGeralAtual);
+        adicionaLsReceberPagantes(lsReceberPagantes, pnew);
+        resolver(p_lsGeralAtual,lsReceberPagantes,lsJaForamDestaVez,qta);
+        if(p_lsGeralAtual.isEmpty())return;
     }
 
-	private P extrairParceiro(ArrayList<P> pLsGeralAtual, P p) {
-		P parceiro = pLsGeralAtual.stream().filter( o -> p.getSaldoAtual()+o.getSaldoAtual()==0).collect(Collectors.toList()).get(0);
+	private static void resetarAndamentoParcial(ArrayList<P> p_lsGeralAtual,ArrayList<RP> lsReceberPagantes, ArrayList<P> lsJaForamDestaVez, RP rp, P p) {
+		lsReceberPagantes.remove(rp);
+		if(p.isReceber()){
+			ArrayList<RP> lsAux = (ArrayList<RP>) lsReceberPagantes.stream().filter(o-> o.receber.equals(p)).collect(Collectors.toList());
+			for (RP rpAux : lsAux){
+				p_lsGeralAtual.add(rpAux.pagar);
+			}
+			lsReceberPagantes.removeAll(lsAux);
+		}else{
+			ArrayList<RP> lsAux = (ArrayList<RP>) lsReceberPagantes.stream().filter(o-> o.pagar.equals(p)).collect(Collectors.toList());
+			for (RP rpAux : lsAux){
+				p_lsGeralAtual.add(rpAux.receber);
+			}
+			lsReceberPagantes.removeAll(lsAux);
+		}
+		lsJaForamDestaVez.add(p);
+	}
+
+	private RP adicionaLsReceberPagantes(ArrayList<RP> lsReceberPagantes, P pnew) {
+        if(pnew.isReceber()){
+            lsReceberPagantes.add(new RP(pnew,null));
+        }else{
+            lsReceberPagantes.add(new RP(null, pnew));
+        }
+        return pegarSozinho(lsReceberPagantes);
+    }
+
+    private P extrairParceiro(ArrayList<P> pLsGeralAtual, P p) {
+        ArrayList<P> pLsPossiveisParceiros = (ArrayList<P>) pLsGeralAtual.stream().filter(o -> p.getSaldoAtual()+o.getSaldoAtual()==0).collect(Collectors.toList());
+        if(pLsPossiveisParceiros.isEmpty())return null;
+		P parceiro = pLsPossiveisParceiros.get(0);
 		pLsGeralAtual.remove(parceiro);
 		return parceiro;
 	}
@@ -165,19 +202,6 @@ class Tool {
 		}
 		return p.getSaldoInicial() + total;
 	}
-    public static void lsResolvidoHardcode(ArrayList<P> valores1, ArrayList<RP> lsReceberPagantes) {
-        lsReceberPagantes.add(new RP(valores1.get(1),valores1.get(0)));
-        lsReceberPagantes.add(new RP(valores1.get(2),valores1.get(0)));
-        lsReceberPagantes.add(new RP(valores1.get(3),valores1.get(0)));
-        lsReceberPagantes.add(new RP(valores1.get(4),valores1.get(5)));
-        lsReceberPagantes.add(new RP(valores1.get(4),valores1.get(6)));
-        lsReceberPagantes.add(new RP(valores1.get(4),valores1.get(7)));
-        lsReceberPagantes.add(new RP(valores1.get(9),valores1.get(8)));
-        lsReceberPagantes.add(new RP(valores1.get(10),valores1.get(8)));
-        lsReceberPagantes.add(new RP(valores1.get(11),valores1.get(12)));
-        lsReceberPagantes.add(new RP(valores1.get(11),valores1.get(13)));
-        lsReceberPagantes.add(new RP(valores1.get(15),valores1.get(14)));
-    }
     public ArrayList<P> calcularReceberPagantesSomaIgual(ArrayList<P> lsGeral, ArrayList<RP> lsReceberPagantes) {
 		ArrayList<P> lsAux = (ArrayList<P>) lsGeral.clone();
 		for (P r : lsGeral) {
@@ -295,11 +319,11 @@ class Tool {
 			System.out.println(colorFnt+colorBg +
 					Utils.leftPad(String.valueOf(lsReceberPagantes.indexOf(rp)), 2, " ") + "|" +
 					receber.getNome() + "|" +
-					Utils.leftPad(String.valueOf(receber.getSaldoInicial()), numsize, " ") + "|" +
 					Utils.leftPad(String.valueOf(receber.getSaldoAtual()), numsize, " ") + "|" +
+					Utils.leftPad(String.valueOf(receber.getSaldoInicial()), numsize, " ") + "|" +
 					pagar.getNome() + "|" +
 					Utils.leftPad(String.valueOf(pagar.getSaldoAtual()), numsize, " ") + "|" +
-					Utils.leftPad(String.valueOf(pagar.getSaldoAtual()), numsize, " ") + "|"
+					Utils.leftPad(String.valueOf(pagar.getSaldoInicial()), numsize, " ") + "|"
 			);
 		}
 	}
@@ -332,7 +356,7 @@ class Tool {
 	public static ArrayList<P> getLista() {
 		ArrayList<P> lista = new ArrayList();
 		lista.addAll(getLista0());
-		//lista.addAll(getLista1());
+		lista.addAll(getLista1());
 		//lista.addAll(getLista2());
 		//lista.addAll(getLista3());
 
@@ -350,7 +374,7 @@ class Tool {
 		return lista;
 	}
 
-	public ArrayList<P> getLista1() {
+	public static ArrayList<P> getLista1() {
 		ArrayList<P> lista = new ArrayList();
 		lista.add(new P("max1", 1000.00, true));
 		lista.add(new P("med1", 400.00, true));
@@ -442,10 +466,10 @@ class P {
     public String toString() {
         return "P{" +
                 "nome='" + getNome() + '\'' +
-                ", naoIsento='" + isNaoIsento() + '\'' +
-                ", valor=" + getValorPago() +
-                ", saldoInicial=" + getSaldoInicial() +
                 ", saldoAtual=" + getSaldoAtual() +
+                ", saldoInicial=" + getSaldoInicial() +
+                ", valor=" + getValorPago() +
+                ", naoIsento='" + isNaoIsento() + '\'' +
                 '}'+"\n";
     }
 }
